@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OVD Freight Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #050505;
+      --surface: #0e0e0e;
+      --card: #141414;
+      --card-hover: #1a1a1a;
+      --border: #1f1f1f;
+      --border-accent: #2a2a2a;
+      --text: #e5e5e5;
+      --text-dim: #737373;
+      --text-muted: #525252;
+      --white: #ffffff;
+      --green: #22c55e;
+      --green-glow: rgba(34, 197, 94, 0.15);
+      --green-dim: rgba(34, 197, 94, 0.08);
+      --blue: #3b82f6;
+      --blue-glow: rgba(59, 130, 246, 0.15);
+      --purple: #a855f7;
+      --purple-glow: rgba(168, 85, 247, 0.15);
+      --amber: #f59e0b;
+      --amber-glow: rgba(245, 158, 11, 0.15);
+      --red: #ef4444;
+      --red-glow: rgba(239, 68, 68, 0.15);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.5;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* PASSWORD GATE */
+    .pw-gate {
+      position: fixed; inset: 0; z-index: 99999;
+      background: #050505;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 28px;
+      transition: opacity 0.5s, visibility 0.5s;
+    }
+    .pw-gate.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .pw-logo {
+      width: 120px; height: 120px;
+      margin-bottom: 8px;
+    }
+    .pw-logo img {
+      width: 100%; height: 100%;
+      object-fit: contain;
+    }
+    .pw-title {
+      font-size: 14px; font-weight: 500;
+      letter-spacing: 6px; color: rgba(255,255,255,0.35);
+      text-transform: uppercase;
+    }
+    .pw-input {
+      width: 340px; max-width: 80vw;
+      padding: 14px 20px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      color: rgba(255,255,255,0.5);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px; text-align: center;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+    .pw-input::placeholder { color: rgba(255,255,255,0.2); }
+    .pw-input:focus { border-color: rgba(255,255,255,0.25); }
+    .pw-input.shake {
+      animation: pwShake 0.4s ease;
+      border-color: rgba(239,68,68,0.5);
+    }
+    @keyframes pwShake {
+      0%,100% { transform: translateX(0); }
+      20%,60% { transform: translateX(-8px); }
+      40%,80% { transform: translateX(8px); }
+    }
+    .pw-subtitle {
+      font-size: 11px; font-weight: 500;
+      letter-spacing: 5px; color: rgba(255,255,255,0.15);
+      text-transform: uppercase;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: -50%; left: -50%;
+      width: 200%; height: 200%;
+      background: radial-gradient(ellipse at 30% 20%, rgba(34, 197, 94, 0.03) 0%, transparent 50%),
+                  radial-gradient(ellipse at 70% 80%, rgba(59, 130, 246, 0.02) 0%, transparent 50%);
+      pointer-events: none; z-index: 0;
+    }
+
+    .container { max-width: 1320px; margin: 0 auto; padding: 40px 24px; position: relative; z-index: 1; }
+
+    /* LOADING STATE */
+    .loading-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 60vh;
+      gap: 24px;
+    }
+    .loading-spinner {
+      width: 48px; height: 48px;
+      border: 3px solid var(--border);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { color: var(--text-dim); font-size: 0.85rem; font-weight: 500; }
+
+    /* ERROR STATE */
+    .error-banner {
+      background: var(--red-glow);
+      border: 1px solid rgba(239,68,68,0.2);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      display: none;
+    }
+    .error-banner p { color: var(--red); font-size: 0.85rem; font-weight: 500; }
+
+    /* HEADER */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 48px;
+      padding-bottom: 32px;
+      border-bottom: 1px solid var(--border);
+    }
+    .header-title-row { display: flex; align-items: center; gap: 14px; }
+    .header-logo { width: 52px; height: 52px; flex-shrink: 0; object-fit: contain; }
+    .header-left h1 {
+      font-size: 2.25rem; font-weight: 800; color: var(--white);
+      letter-spacing: -0.03em; line-height: 1.1;
+    }
+    .header-left h1 span {
+      background: linear-gradient(135deg, var(--green) 0%, #4ade80 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .header-sub { color: var(--text-dim); font-size: 0.875rem; margin-top: 8px; }
+    .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+    .live-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--green-dim); border: 1px solid rgba(34,197,94,0.2);
+      padding: 6px 14px; border-radius: 100px;
+      font-size: 0.75rem; font-weight: 600; color: var(--green);
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+    .live-dot {
+      width: 6px; height: 6px; background: var(--green);
+      border-radius: 50%; animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+      50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+    }
+    .timestamp { color: var(--text-muted); font-size: 0.75rem; }
+    .refresh-btn {
+      background: var(--surface); border: 1px solid var(--border); color: var(--text-dim);
+      padding: 6px 14px; border-radius: 8px; font-size: 0.7rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.06em;
+      margin-top: 4px;
+    }
+    .refresh-btn:hover { border-color: var(--green); color: var(--green); }
+
+    /* KPI STRIP */
+    .kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 40px; }
+    .kpi-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 24px; position: relative; overflow: hidden; transition: all 0.3s ease;
+    }
+    .kpi-card:hover { border-color: var(--border-accent); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+    .kpi-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+    .kpi-card:nth-child(1)::after { background: linear-gradient(90deg, var(--green), transparent); }
+    .kpi-card:nth-child(2)::after { background: linear-gradient(90deg, var(--blue), transparent); }
+    .kpi-card:nth-child(3)::after { background: linear-gradient(90deg, var(--purple), transparent); }
+    .kpi-card:nth-child(4)::after { background: linear-gradient(90deg, var(--amber), transparent); }
+    .kpi-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 10px; }
+    .kpi-value { font-size: 2rem; font-weight: 800; color: var(--white); letter-spacing: -0.03em; line-height: 1; }
+    .kpi-card:nth-child(1) .kpi-value { color: var(--green); }
+    .kpi-card:nth-child(2) .kpi-value { color: var(--blue); }
+    .kpi-card:nth-child(3) .kpi-value { color: var(--purple); }
+    .kpi-card:nth-child(4) .kpi-value { color: var(--amber); }
+    .kpi-sub { font-size: 0.75rem; color: var(--text-dim); margin-top: 8px; }
+
+    /* SECTION HEADERS */
+    .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; margin-top: 8px; }
+    .section-header h2 { font-size: 1.125rem; font-weight: 700; color: var(--white); letter-spacing: -0.02em; }
+    .section-line { flex: 1; height: 1px; background: linear-gradient(90deg, var(--border-accent), transparent); }
+    .section-count {
+      font-size: 0.7rem; font-weight: 600; color: var(--text-muted);
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 4px 10px; border-radius: 100px; text-transform: uppercase; letter-spacing: 0.06em;
+    }
+
+    /* SHIPMENT CARDS */
+    .shipments { display: flex; flex-direction: column; gap: 16px; margin-bottom: 48px; }
+    .shipment-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; overflow: hidden; transition: all 0.3s ease;
+      display: block;
+    }
+    .shipment-card:hover { border-color: var(--border-accent); box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
+    a.shipment-card-link { text-decoration: none; color: inherit; cursor: pointer; }
+    a.shipment-card-link:hover { border-color: var(--green); box-shadow: 0 4px 24px rgba(34,197,94,0.15); }
+    .shipment-top { display: grid; grid-template-columns: 1fr auto; padding: 24px 28px; gap: 20px; align-items: start; }
+    .shipment-info { display: flex; flex-direction: column; gap: 12px; }
+    .shipment-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .tracking-num { font-size: 1.1rem; font-weight: 700; color: var(--white); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+    .carrier-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 6px;
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .carrier-fedex, .carrier-fedex-ground { background: var(--purple-glow); color: var(--purple); border: 1px solid rgba(168,85,247,0.2); }
+    .carrier-ups { background: rgba(161,98,7,0.15); color: #d97706; border: 1px solid rgba(161,98,7,0.25); }
+    .carrier-dhl { background: var(--amber-glow); color: var(--amber); border: 1px solid rgba(245,158,11,0.2); }
+    .carrier-usps { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(59,130,246,0.2); }
+    .type-sea { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(59,130,246,0.2); }
+    .type-air { background: var(--red-glow); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+    .shipment-meta { display: flex; gap: 24px; flex-wrap: wrap; }
+    .meta-item { display: flex; flex-direction: column; gap: 2px; }
+    .meta-label { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .meta-value { font-size: 0.85rem; color: var(--text); font-weight: 500; }
+    .shipment-status-area { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 100px; font-size: 0.75rem; font-weight: 600;
+    }
+    .status-label-created { background: var(--amber-glow); color: var(--amber); border: 1px solid rgba(245,158,11,0.2); }
+    .status-in-transit { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(59,130,246,0.2); }
+    .status-delivered { background: var(--green-glow); color: var(--green); border: 1px solid rgba(34,197,94,0.2); }
+    .status-exception { background: var(--red-glow); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+    .status-default { background: rgba(255,255,255,0.05); color: var(--text-dim); border: 1px solid var(--border); }
+    .delivered-check { font-size: 0.75rem; color: var(--text-muted); }
+    .delivered-yes { color: var(--green); font-weight: 600; }
+
+    /* TIMELINE */
+    .timeline-bar { background: var(--surface); padding: 20px 28px; border-top: 1px solid var(--border); }
+    .timeline { display: flex; align-items: center; position: relative; height: 60px; }
+    .timeline-track { position: absolute; top: 50%; left: 0; right: 0; height: 3px; background: var(--border); border-radius: 2px; transform: translateY(-50%); }
+    .timeline-progress { position: absolute; top: 50%; left: 0; height: 3px; border-radius: 2px; transform: translateY(-50%); }
+    .timeline-steps { display: flex; justify-content: space-between; width: 100%; position: relative; z-index: 2; }
+    .timeline-step { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .step-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border-accent); background: var(--surface); }
+    .step-dot.active { border-color: var(--amber); background: var(--amber); box-shadow: 0 0 12px rgba(245,158,11,0.4); }
+    .step-dot.completed { border-color: var(--green); background: var(--green); box-shadow: 0 0 8px rgba(34,197,94,0.3); }
+    .step-label { font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); white-space: nowrap; }
+    .step-label.active { color: var(--amber); }
+    .step-label.completed { color: var(--green); }
+    .step-date { font-size: 0.6rem; color: var(--text-muted); }
+
+    /* ARRIVAL CARDS */
+    .arrival-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; margin-bottom: 48px; }
+    .arrival-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 24px; position: relative; overflow: hidden; transition: all 0.3s ease;
+    }
+    .arrival-card:hover { border-color: var(--border-accent); }
+    .arrival-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px; }
+    .arrival-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; font-weight: 800;
+    }
+    .arrival-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .arrival-name { font-size: 0.85rem; font-weight: 600; color: var(--white); }
+    .arrival-tracking { font-size: 0.65rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .arrival-details { display: flex; gap: 20px; flex-wrap: wrap; }
+    .arrival-detail-label { font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .arrival-detail-value { font-size: 0.8rem; font-weight: 500; margin-top: 2px; }
+
+    /* TABLE */
+    .details-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow-x: auto; overflow-y: hidden; margin-bottom: 48px; -webkit-overflow-scrolling: touch; }
+    .details-card table { min-width: 900px; }
+    .details-card-header { padding: 20px 28px; border-bottom: 1px solid var(--border); }
+    .details-card-header h3 { font-size: 0.95rem; font-weight: 700; color: var(--white); }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      padding: 14px 20px; text-align: left; font-size: 0.65rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted);
+      background: var(--surface); border-bottom: 1px solid var(--border);
+    }
+    tbody td { padding: 16px 20px; font-size: 0.85rem; color: var(--text); border-bottom: 1px solid var(--border); }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.015); }
+    .td-tracking { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--white); font-size: 0.8rem; }
+
+    /* ALERTS */
+    .alerts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 48px; }
+    .alert-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; position: relative; overflow: hidden; }
+    .alert-card::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; }
+    .alert-info::before { background: var(--blue); }
+    .alert-warning::before { background: var(--amber); }
+    .alert-success::before { background: var(--green); }
+    .alert-title { font-size: 0.8rem; font-weight: 700; color: var(--white); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+    .alert-body { font-size: 0.8rem; color: var(--text-dim); line-height: 1.6; }
+
+    /* AI SUMMARY */
+    .ai-summary { background: linear-gradient(135deg, rgba(168,85,247,0.06), rgba(59,130,246,0.04)); border: 1px solid var(--border-accent); border-radius: 16px; padding: 28px; margin-bottom: 48px; position: relative; overflow: hidden; }
+    .ai-summary::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--purple), var(--blue), var(--green)); }
+    .ai-summary-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--purple); }
+    .ai-summary-overview { font-size: 0.95rem; color: var(--white); line-height: 1.6; margin-bottom: 20px; }
+    .ai-summary-section { margin-top: 18px; }
+    .ai-summary-section h4 { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 10px; }
+    .ai-summary-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+    .ai-summary-list li { font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; padding-left: 18px; position: relative; }
+    .ai-summary-list li::before { content: ''; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; border-radius: 50%; }
+    .ai-summary-list li.flag-red::before { background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.6); }
+    .ai-summary-list li.flag-amber::before { background: var(--amber); box-shadow: 0 0 8px rgba(245,158,11,0.6); }
+    .ai-summary-list li.flag-blue::before { background: var(--blue); box-shadow: 0 0 8px rgba(59,130,246,0.6); }
+    .ai-summary-list li.flag-green::before { background: var(--green); box-shadow: 0 0 8px rgba(34,197,94,0.6); }
+    .ai-summary-list li strong { color: var(--white); font-weight: 600; }
+    .ai-summary-empty { font-size: 0.85rem; color: var(--text-muted); font-style: italic; }
+
+    /* FOOTER */
+    .footer { padding-top: 32px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .footer-brand { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.06em; }
+    .footer-brand span { color: var(--green); }
+    .footer-meta { font-size: 0.7rem; color: var(--text-muted); }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+      .kpi-card { padding: 18px; min-width: 0; }
+      .kpi-value { font-size: 1.5rem; word-break: break-word; overflow-wrap: anywhere; }
+      .alerts-grid { grid-template-columns: 1fr; }
+      .arrival-grid { grid-template-columns: 1fr; }
+      .header { flex-direction: column; gap: 16px; }
+      .header-right { align-items: flex-start; }
+      .shipment-top { grid-template-columns: 1fr; }
+      .container { padding: 20px 16px; }
+      .header-left h1 { font-size: 1.75rem; }
+      .timeline-step { flex: 1; min-width: 0; }
+      .step-label { font-size: 0.5rem; letter-spacing: 0.02em; white-space: normal; text-align: center; word-break: break-word; line-height: 1.1; }
+    }
+
+    @media (max-width: 400px) {
+      .kpi-value { font-size: 1.25rem; }
+      .kpi-card { padding: 14px; }
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeInUp 0.5s ease forwards; }
+    .fade-in-delay-1 { animation-delay: 0.1s; opacity: 0; }
+    .fade-in-delay-2 { animation-delay: 0.2s; opacity: 0; }
+    .fade-in-delay-3 { animation-delay: 0.3s; opacity: 0; }
+
+    /* Hide main content until loaded */
+    #dashboard { display: none; }
+  </style>
+</head>
+<body>
+  <!-- PASSWORD GATE -->
+  <div id="pwGate" class="pw-gate">
+    <div class="pw-logo"><img src="data:image/webp;base64,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" alt="OVD"></div>
+    <div class="pw-title">INTERNAL ACCESS</div>
+    <input type="password" id="pwInput" class="pw-input" placeholder="Enter password" autofocus>
+    <div class="pw-subtitle">STAFF ONLY</div>
+  </div>
+
+  <div class="container" id="mainApp" style="display:none;">
+
+    <!-- LOADING -->
+    <div id="loading" class="loading-screen">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading shipment data...</div>
+    </div>
+
+    <!-- ERROR -->
+    <div id="error-banner" class="error-banner">
+      <p id="error-msg">Unable to load shipment data. The Google Sheet may not be published to the web.</p>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard">
+
+      <!-- HEADER -->
+      <div class="header">
+        <div class="header-left">
+          <div class="header-title-row">
+            <img class="header-logo" id="headerLogo" alt="OVD">
+            <h1><span>Freight Tracker</span></h1>
+          </div>
+          <p class="header-sub">Live logistics dashboard &mdash; pulling from OVD Shipment Tracking sheet</p>
+        </div>
+        <div class="header-right">
+          <div class="live-badge"><div class="live-dot"></div>Live Data</div>
+          <span class="timestamp" id="timestamp"></span>
+          <button class="refresh-btn" onclick="loadData()">&#8635; Refresh</button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpi-strip" id="kpi-strip"></div>
+
+      <!-- SHIPMENT CARDS -->
+      <div class="section-header">
+        <h2>Active Shipments</h2>
+        <div class="section-line"></div>
+        <div class="section-count" id="shipment-count"></div>
+      </div>
+      <div class="shipments" id="shipments"></div>
+
+      <!-- DELIVERED SHIPMENTS -->
+      <div class="section-header" id="delivered-header" style="display:none;">
+        <h2>Delivered Shipments</h2>
+        <div class="section-line"></div>
+        <div class="section-count" id="delivered-count"></div>
+      </div>
+      <div class="shipments" id="delivered-shipments"></div>
+
+      <!-- ARRIVAL TIMELINE -->
+      <div class="section-header">
+        <h2>Arrival Timeline</h2>
+        <div class="section-line"></div>
+        <div class="section-count">ETA Overview</div>
+      </div>
+      <div class="arrival-grid" id="arrival-grid"></div>
+
+      <!-- TABLE -->
+      <div class="section-header">
+        <h2>Full Manifest</h2>
+        <div class="section-line"></div>
+      </div>
+      <div class="details-card">
+        <table>
+          <thead>
+            <tr>
+              <th>Tracking #</th>
+              <th>Carrier</th>
+              <th>Type</th>
+              <th>Contents</th>
+              <th>Supplier</th>
+              <th>Status</th>
+              <th>Location</th>
+              <th>ETA</th>
+              <th>Delivered</th>
+              <th>Date Delivered</th>
+            </tr>
+          </thead>
+          <tbody id="manifest-body"></tbody>
+        </table>
+      </div>
+
+      <!-- ALERTS -->
+      <div class="section-header">
+        <h2>Alerts & Notes</h2>
+        <div class="section-line"></div>
+      </div>
+      <div class="alerts-grid" id="alerts-grid"></div>
+
+      <!-- AI SUMMARY -->
+      <div class="section-header">
+        <h2>Summary & Action Items</h2>
+        <div class="section-line"></div>
+        <div class="section-count">Auto-generated</div>
+      </div>
+      <div class="ai-summary" id="ai-summary"></div>
+
+      <!-- FOOTER -->
+      <div class="footer">
+        <div class="footer-brand"><span>OVD</span> &mdash; Freight Tracker</div>
+        <div class="footer-meta" id="footer-meta"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Copy OVD logo from password gate to header
+    (function(){
+      const pwImg = document.querySelector('.pw-logo img');
+      const hdrImg = document.getElementById('headerLogo');
+      if (pwImg && hdrImg) hdrImg.src = pwImg.src;
+    })();
+
+    // Google Sheet config
+    const SHEET_ID = '1Hs7cBB7IX82eiZEvdk8FfCi2HipucS_VlVmWyryAy_A';
+
+    // Column mapping (A=0, B=1, etc.)
+    const COL = {
+      TRACKING: 0,   // A
+      CARRIER: 1,    // B
+      SHIP_TYPE: 2,  // C
+      CONTENTS: 3,   // D
+      SUPPLIER: 4,   // E
+      STATUS: 5,     // F
+      LOCATION: 6,   // G
+      ETA: 7,        // H
+      ISSUES: 8,     // I
+      LAST_CHECKED: 9, // J
+      DATE_ADDED: 10,  // K
+      NOTES: 11,     // L
+      DELIVERED: 12,  // M
+      DATE_DELIVERED: 13 // N
+    };
+
+    function getVal(row, col) {
+      if (!row.c || !row.c[col]) return '';
+      return row.c[col].v || '';
+    }
+
+    function getFormattedVal(row, col) {
+      if (!row.c || !row.c[col]) return '';
+      return row.c[col].f || row.c[col].v || '';
+    }
+
+    function carrierClass(carrier) {
+      const c = (carrier || '').toLowerCase();
+      if (c.includes('fedex ground')) return 'carrier-fedex-ground';
+      if (c.includes('fedex')) return 'carrier-fedex';
+      if (c.includes('ups')) return 'carrier-ups';
+      if (c.includes('dhl')) return 'carrier-dhl';
+      if (c.includes('usps')) return 'carrier-usps';
+      return 'carrier-fedex';
+    }
+
+    function carrierShort(carrier) {
+      const c = (carrier || '').toLowerCase();
+      if (c.includes('fedex ground')) return 'FG';
+      if (c.includes('fedex')) return 'FE';
+      if (c.includes('ups')) return 'U';
+      if (c.includes('dhl')) return 'D';
+      if (c.includes('usps')) return 'US';
+      return '?';
+    }
+
+    function typeClass(type) {
+      const t = (type || '').toLowerCase();
+      if (t.includes('sea')) return 'type-sea';
+      if (t.includes('air')) return 'type-air';
+      return 'type-sea';
+    }
+
+    function statusClass(status) {
+      const s = (status || '').toLowerCase();
+      if (s.includes('delivered')) return 'status-delivered';
+      if (s.includes('transit') || s.includes('shipping') || s.includes('out for')) return 'status-in-transit';
+      if (s.includes('label') || s.includes('pending') || s.includes('created')) return 'status-label-created';
+      if (s.includes('exception') || s.includes('hold') || s.includes('customs')) return 'status-exception';
+      return 'status-default';
+    }
+
+    function getTimelineStage(status, delivered) {
+      if (delivered) return 4;
+      const s = (status || '').toLowerCase();
+      if (s.includes('delivered')) return 4;
+      if (s.includes('out for delivery')) return 3;
+      if (s.includes('transit') || s.includes('shipping')) return 2;
+      if (s.includes('picked up') || s.includes('pickup')) return 1;
+      return 0; // label created
+    }
+
+    function getProgressWidth(stage) {
+      return [15, 30, 55, 80, 100][stage] || 15;
+    }
+
+    function getProgressColor(stage) {
+      if (stage >= 4) return 'background: linear-gradient(90deg, var(--green), rgba(34,197,94,0.3));';
+      if (stage >= 2) return 'background: linear-gradient(90deg, var(--blue), rgba(59,130,246,0.3));';
+      return 'background: linear-gradient(90deg, var(--amber), rgba(245,158,11,0.3));';
+    }
+
+    function formatDate(val) {
+      if (!val) return '';
+      if (typeof val === 'string') return val;
+      if (val instanceof Date) {
+        return val.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+      // Google Sheets date format: Date(year, month, day)
+      return val.toString();
+    }
+
+    function loadData() {
+      const loading = document.getElementById('loading');
+      const dashboard = document.getElementById('dashboard');
+      const errorBanner = document.getElementById('error-banner');
+
+      loading.style.display = 'flex';
+      dashboard.style.display = 'none';
+      errorBanner.style.display = 'none';
+
+      // Use JSONP (script injection) to bypass CORS — works from any origin
+      const callbackName = '_sheetCallback_' + Date.now();
+      const script = document.createElement('script');
+      script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json;responseHandler:${callbackName}&sheet=Sheet1`;
+
+      // Timeout after 15s
+      const timeout = setTimeout(() => {
+        cleanup();
+        loading.style.display = 'none';
+        errorBanner.style.display = 'block';
+        document.getElementById('error-msg').textContent =
+          'Unable to load data: Request timed out. Make sure the Google Sheet is published to the web (File > Share > Publish to web).';
+        dashboard.style.display = 'block';
+      }, 15000);
+
+      function cleanup() {
+        clearTimeout(timeout);
+        delete window[callbackName];
+        if (script.parentNode) script.parentNode.removeChild(script);
+      }
+
+      window[callbackName] = function(response) {
+        cleanup();
+        try {
+          const rows = response.table.rows;
+          if (!rows || rows.length === 0) throw new Error('No data found in sheet');
+          renderDashboard(rows);
+          loading.style.display = 'none';
+          dashboard.style.display = 'block';
+        } catch (err) {
+          loading.style.display = 'none';
+          errorBanner.style.display = 'block';
+          document.getElementById('error-msg').textContent =
+            'Unable to load data: ' + err.message + '. Make sure the Google Sheet is published to the web (File > Share > Publish to web).';
+          dashboard.style.display = 'block';
+        }
+      };
+
+      script.onerror = function() {
+        cleanup();
+        loading.style.display = 'none';
+        errorBanner.style.display = 'block';
+        document.getElementById('error-msg').textContent =
+          'Unable to load data: Failed to connect to Google Sheets. Make sure the Google Sheet is published to the web (File > Share > Publish to web).';
+        dashboard.style.display = 'block';
+      };
+
+      document.head.appendChild(script);
+    }
+
+    function renderDashboard(rows) {
+      const shipments = rows.map(row => ({
+        tracking: getVal(row, COL.TRACKING),
+        carrier: getFormattedVal(row, COL.CARRIER),
+        shipType: getFormattedVal(row, COL.SHIP_TYPE),
+        contents: getVal(row, COL.CONTENTS),
+        supplier: getVal(row, COL.SUPPLIER),
+        status: getVal(row, COL.STATUS),
+        location: getVal(row, COL.LOCATION),
+        eta: getFormattedVal(row, COL.ETA),
+        issues: getVal(row, COL.ISSUES),
+        lastChecked: getFormattedVal(row, COL.LAST_CHECKED),
+        dateAdded: getFormattedVal(row, COL.DATE_ADDED),
+        dateDelivered: getFormattedVal(row, COL.DATE_DELIVERED),
+        notes: getVal(row, COL.NOTES),
+        delivered: getVal(row, COL.DELIVERED) === true || getVal(row, COL.DELIVERED) === 'TRUE'
+      })).filter(s => s.tracking || s.carrier || s.contents); // keep rows with any identifying info
+
+      const total = shipments.length;
+      const delivered = shipments.filter(s => s.delivered).length;
+      const active = total - delivered;
+      const inTransit = shipments.filter(s => {
+        const st = (s.status || '').toLowerCase();
+        return st.includes('transit') || st.includes('shipping');
+      }).length;
+      const carriers = [...new Set(shipments.map(s => s.carrier).filter(Boolean))];
+      const issues = shipments.filter(s => s.issues && s.issues.toLowerCase() !== 'none' && s.issues.trim() !== '').length;
+      const pendingEta = shipments.find(s => !s.delivered && s.eta && s.eta.toLowerCase() !== 'pending');
+
+      // Timestamp
+      const now = new Date();
+      document.getElementById('timestamp').textContent =
+        'Last refreshed: ' + now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) +
+        ' at ' + now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      document.getElementById('footer-meta').textContent =
+        'Data refreshed ' + now.toLocaleDateString() + ' \u2022 freight.whathappenedtogod.dev';
+
+      // KPIs
+      document.getElementById('kpi-strip').innerHTML = `
+        <div class="kpi-card fade-in">
+          <div class="kpi-label">Active Shipments</div>
+          <div class="kpi-value">${active}</div>
+          <div class="kpi-sub">${delivered} delivered \u2022 ${total} total</div>
+        </div>
+        <div class="kpi-card fade-in fade-in-delay-1">
+          <div class="kpi-label">In Transit</div>
+          <div class="kpi-value">${inTransit}</div>
+          <div class="kpi-sub">${active - inTransit} awaiting pickup</div>
+        </div>
+        <div class="kpi-card fade-in fade-in-delay-2">
+          <div class="kpi-label">Carriers</div>
+          <div class="kpi-value">${carriers.length}</div>
+          <div class="kpi-sub">${carriers.join(' \u2022 ') || 'None'}</div>
+        </div>
+        <div class="kpi-card fade-in fade-in-delay-3">
+          <div class="kpi-label">Next ETA</div>
+          <div class="kpi-value">${pendingEta ? pendingEta.eta : 'TBD'}</div>
+          <div class="kpi-sub">${issues > 0 ? issues + ' issue(s) flagged' : 'No issues flagged'}</div>
+        </div>
+      `;
+
+      // Shipment count
+      document.getElementById('shipment-count').textContent = `${active} Active`;
+
+      // Shipment cards (only non-delivered)
+      const activeShipments = shipments.filter(s => !s.delivered);
+      const deliveredShipments = shipments.filter(s => s.delivered);
+      const steps = ['Label Created', 'Picked Up', 'In Transit', 'Out for Delivery', 'Delivered'];
+
+      function trackingUrl(carrier, tracking) {
+        if (!tracking) return null;
+        const c = (carrier || '').toLowerCase();
+        const t = encodeURIComponent(tracking);
+        if (c.includes('fedex')) return `https://www.fedex.com/fedextrack/?trknbr=${t}`;
+        if (c.includes('ups')) return `https://www.ups.com/track?tracknum=${t}`;
+        if (c.includes('dhl')) return `https://www.dhl.com/us-en/home/tracking.html?submit=1&tracking-id=${t}`;
+        if (c.includes('usps')) return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${t}`;
+        return null;
+      }
+
+      function renderShipmentCard(s) {
+        const stage = getTimelineStage(s.status, s.delivered);
+        const pw = getProgressWidth(stage);
+        const pc = getProgressColor(stage);
+        const url = trackingUrl(s.carrier, s.tracking);
+        const cardTag = url ? 'a' : 'div';
+        const cardAttrs = url ? `href="${url}" target="_blank" rel="noopener"` : '';
+
+        return `
+          <${cardTag} class="shipment-card fade-in${url ? ' shipment-card-link' : ''}" ${cardAttrs}>
+            <div class="shipment-top">
+              <div class="shipment-info">
+                <div class="shipment-title-row">
+                  <span class="tracking-num">${s.tracking}</span>
+                  <span class="carrier-badge ${carrierClass(s.carrier)}">\u25C6 ${s.carrier}</span>
+                  ${s.shipType ? `<span class="carrier-badge ${typeClass(s.shipType)}">${s.shipType.toUpperCase() === 'AIR' ? '\u2708' : '\u2699'} ${s.shipType}</span>` : ''}
+                </div>
+                <div class="shipment-meta">
+                  ${s.contents ? `<div class="meta-item"><span class="meta-label">Contents</span><span class="meta-value">${s.contents}</span></div>` : ''}
+                  ${s.supplier ? `<div class="meta-item"><span class="meta-label">Supplier</span><span class="meta-value">${s.supplier}</span></div>` : ''}
+                  ${s.location ? `<div class="meta-item"><span class="meta-label">Location</span><span class="meta-value">${s.location}</span></div>` : ''}
+                  ${s.dateAdded ? `<div class="meta-item"><span class="meta-label">Date Label Created</span><span class="meta-value">${s.dateAdded}</span></div>` : ''}
+                  ${s.delivered && s.dateDelivered ? `<div class="meta-item"><span class="meta-label">Date Delivered</span><span class="meta-value">${s.dateDelivered}</span></div>` : ''}
+                  ${s.notes ? `<div class="meta-item"><span class="meta-label">Notes</span><span class="meta-value">${s.notes}</span></div>` : ''}
+                </div>
+              </div>
+              <div class="shipment-status-area">
+                <div class="status-pill ${statusClass(s.status)}">\u25CF ${s.status || 'Unknown'}</div>
+                <span class="delivered-check">${s.delivered ? '\u2611 Delivered' : '\u2610 Not Delivered'}</span>
+              </div>
+            </div>
+            <div class="timeline-bar">
+              <div class="timeline">
+                <div class="timeline-track"></div>
+                <div class="timeline-progress" style="width: ${pw}%; ${pc}"></div>
+                <div class="timeline-steps">
+                  ${steps.map((step, i) => `
+                    <div class="timeline-step">
+                      <div class="step-dot ${i < stage ? 'completed' : i === stage ? 'active' : ''}"></div>
+                      <span class="step-label ${i < stage ? 'completed' : i === stage ? 'active' : ''}">${step}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+          </${cardTag}>
+        `;
+      }
+
+      document.getElementById('shipments').innerHTML = activeShipments.map(renderShipmentCard).join('');
+
+      // Delivered shipments section
+      const deliveredHeader = document.getElementById('delivered-header');
+      const deliveredCountEl = document.getElementById('delivered-count');
+      if (deliveredShipments.length > 0) {
+        deliveredHeader.style.display = '';
+        deliveredCountEl.textContent = `${deliveredShipments.length} Delivered`;
+        document.getElementById('delivered-shipments').innerHTML = deliveredShipments.map(renderShipmentCard).join('');
+      } else {
+        deliveredHeader.style.display = 'none';
+        document.getElementById('delivered-shipments').innerHTML = '';
+      }
+
+      // Arrival grid
+      document.getElementById('arrival-grid').innerHTML = activeShipments.map(s => {
+        const badgeCls = carrierClass(s.carrier);
+        const bgColor = badgeCls.includes('ups') ? 'rgba(161,98,7,0.15)' :
+                        badgeCls.includes('fedex') ? 'var(--purple-glow)' :
+                        badgeCls.includes('dhl') ? 'var(--amber-glow)' : 'var(--blue-glow)';
+        const borderColor = badgeCls.includes('ups') ? 'rgba(161,98,7,0.25)' :
+                           badgeCls.includes('fedex') ? 'rgba(168,85,247,0.2)' :
+                           badgeCls.includes('dhl') ? 'rgba(245,158,11,0.2)' : 'rgba(59,130,246,0.2)';
+        const textColor = badgeCls.includes('ups') ? '#d97706' :
+                         badgeCls.includes('fedex') ? 'var(--purple)' :
+                         badgeCls.includes('dhl') ? 'var(--amber)' : 'var(--blue)';
+        const topColor = badgeCls.includes('ups') ? 'linear-gradient(90deg, #d97706, transparent)' :
+                        badgeCls.includes('fedex') ? 'linear-gradient(90deg, var(--purple), transparent)' :
+                        'linear-gradient(90deg, var(--amber), transparent)';
+
+        return `
+          <div class="arrival-card fade-in" style="position:relative;">
+            <div style="position:absolute;top:0;left:0;width:100%;height:2px;background:${topColor};"></div>
+            <div class="arrival-header">
+              <div class="arrival-icon" style="background:${bgColor};border:1px solid ${borderColor};color:${textColor};">${carrierShort(s.carrier)}</div>
+              <div>
+                <div class="arrival-name">${s.contents || s.tracking}</div>
+                <div class="arrival-tracking">${s.tracking}</div>
+              </div>
+            </div>
+            <div class="arrival-details">
+              <div>
+                <div class="arrival-detail-label">Route</div>
+                <div class="arrival-detail-value" style="color:var(--text);">${s.location || '?'} \u2192 Destination</div>
+              </div>
+              <div>
+                <div class="arrival-detail-label">ETA</div>
+                <div class="arrival-detail-value" style="color:var(--amber);font-weight:600;">${s.eta || 'Pending'}</div>
+              </div>
+              <div>
+                <div class="arrival-detail-label">Ship Type</div>
+                <div class="arrival-detail-value" style="color:${s.shipType && s.shipType.toUpperCase() === 'AIR' ? 'var(--red)' : 'var(--blue)'};font-weight:600;">${s.shipType || 'N/A'}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Manifest table
+      document.getElementById('manifest-body').innerHTML = shipments.map(s => `
+        <tr>
+          <td class="td-tracking">${s.tracking}</td>
+          <td><span class="carrier-badge ${carrierClass(s.carrier)}" style="font-size:0.65rem;">${s.carrier}</span></td>
+          <td>${s.shipType ? `<span class="carrier-badge ${typeClass(s.shipType)}" style="font-size:0.65rem;">${s.shipType}</span>` : ''}</td>
+          <td>${s.contents}</td>
+          <td>${s.supplier}</td>
+          <td><span class="status-pill ${statusClass(s.status)}" style="font-size:0.65rem;padding:3px 10px;">${s.status}</span></td>
+          <td>${s.location}</td>
+          <td style="color:var(--amber);font-weight:600;">${s.eta || 'Pending'}</td>
+          <td style="color:${s.delivered ? 'var(--green)' : 'var(--text-muted)'};">${s.delivered ? '\u2611 Yes' : '\u2610 No'}</td>
+          <td style="color:${s.delivered && s.dateDelivered ? 'var(--green)' : 'var(--text-muted)'};">${s.delivered && s.dateDelivered ? s.dateDelivered : '—'}</td>
+        </tr>
+      `).join('');
+
+      // Alerts
+      const alertsHtml = [];
+      activeShipments.forEach(s => {
+        if (s.issues && s.issues.toLowerCase() !== 'none' && s.issues.trim()) {
+          alertsHtml.push(`
+            <div class="alert-card alert-warning fade-in">
+              <div class="alert-title">\u26A0\uFE0F Issue: ${s.tracking}</div>
+              <div class="alert-body">${s.issues} &mdash; ${s.contents} (${s.carrier})</div>
+            </div>
+          `);
+        }
+        if (s.notes && s.notes.trim()) {
+          alertsHtml.push(`
+            <div class="alert-card alert-info fade-in">
+              <div class="alert-title">\uD83D\uDCE6 ${s.contents || s.tracking}</div>
+              <div class="alert-body">${s.notes}${s.supplier ? ' \u2022 Supplier: ' + s.supplier : ''}${s.location ? ' \u2022 Location: ' + s.location : ''}</div>
+            </div>
+          `);
+        }
+      });
+
+      if (alertsHtml.length === 0) {
+        alertsHtml.push(`
+          <div class="alert-card alert-success fade-in">
+            <div class="alert-title">\u2705 All Clear</div>
+            <div class="alert-body">No issues flagged across any active shipments.</div>
+          </div>
+        `);
+      }
+
+      document.getElementById('alerts-grid').innerHTML = alertsHtml.join('');
+
+      // AI SUMMARY - heuristic-generated insights
+      renderAiSummary(shipments, activeShipments, deliveredShipments);
+    }
+
+    function parseDateFlexible(v) {
+      if (!v) return null;
+      const d = new Date(v);
+      if (!isNaN(d.getTime())) return d;
+      const m = String(v).match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+      if (m) {
+        let yr = parseInt(m[3], 10);
+        if (yr < 100) yr += 2000;
+        return new Date(yr, parseInt(m[1],10)-1, parseInt(m[2],10));
+      }
+      return null;
+    }
+
+    function daysBetween(a, b) {
+      return Math.round((b - a) / (1000 * 60 * 60 * 24));
+    }
+
+    function renderAiSummary(all, active, delivered) {
+      const today = new Date();
+      const checkInItems = [];
+      const alertItems = [];
+      const goodItems = [];
+
+      active.forEach(s => {
+        const label = `<strong>${s.tracking || 'Unknown'}</strong>${s.contents ? ' (' + s.contents + ')' : ''}`;
+        const status = (s.status || '').toLowerCase();
+        const lastCheckedDate = parseDateFlexible(s.lastChecked);
+        const dateAddedDate = parseDateFlexible(s.dateAdded);
+        const etaDate = parseDateFlexible(s.eta);
+
+        if (s.issues && s.issues.toString().toLowerCase() !== 'none' && s.issues.toString().trim() !== '') {
+          checkInItems.push({ html: `${label} has a reported issue: "${s.issues}". Worth investigating.`, level: 'red' });
+        }
+
+        if (status.includes('label created') && dateAddedDate) {
+          const age = daysBetween(dateAddedDate, today);
+          if (age >= 7) {
+            checkInItems.push({ html: `${label} label created ${age} days ago but carrier hasn't scanned it yet. Ping the supplier to confirm pickup.`, level: 'amber' });
+          }
+        }
+
+        if (etaDate && etaDate < today) {
+          const overdue = daysBetween(etaDate, today);
+          if (overdue >= 1) {
+            checkInItems.push({ html: `${label} ETA was ${s.eta} (${overdue} day${overdue===1?'':'s'} ago). Check carrier tracking for a delay.`, level: 'red' });
+          }
+        }
+
+        if (lastCheckedDate) {
+          const stale = daysBetween(lastCheckedDate, today);
+          if (stale >= 3) {
+            checkInItems.push({ html: `${label} hasn't been re-checked in ${stale} days. Refresh status from the carrier.`, level: 'blue' });
+          }
+        }
+
+        if (etaDate) {
+          const eta = daysBetween(today, etaDate);
+          if (eta === 0) goodItems.push({ html: `${label} is expected today. Make sure someone's there to receive it.`, level: 'green' });
+          else if (eta === 1) goodItems.push({ html: `${label} arrives tomorrow.`, level: 'green' });
+        }
+
+        if ((status.includes('transit') || status.includes('shipping')) && !etaDate) {
+          alertItems.push({ html: `${label} is in transit but no ETA is set on the sheet. Add one.`, level: 'blue' });
+        }
+      });
+
+      const inTransit = active.filter(s => {
+        const st = (s.status || '').toLowerCase();
+        return st.includes('transit') || st.includes('shipping');
+      }).length;
+      const awaitingPickup = active.filter(s => {
+        const st = (s.status || '').toLowerCase();
+        return st.includes('label') || st.includes('info received') || st.includes('pending');
+      }).length;
+      const issueCount = active.filter(s => s.issues && s.issues.toString().toLowerCase() !== 'none' && s.issues.toString().trim() !== '').length;
+
+      let overview = `You have <strong>${active.length} active shipment${active.length===1?'':'s'}</strong>`;
+      if (delivered.length) overview += ` and <strong>${delivered.length} delivered</strong>`;
+      overview += '. ';
+      if (inTransit) overview += `<strong>${inTransit}</strong> in transit. `;
+      if (awaitingPickup) overview += `<strong>${awaitingPickup}</strong> still awaiting pickup. `;
+      if (issueCount) overview += `<strong>${issueCount}</strong> with flagged issues. `;
+      if (!checkInItems.length && !alertItems.length) overview += `Nothing urgent to check in on right now.`;
+      else overview += `See action items below.`;
+
+      const checkInHtml = checkInItems.length
+        ? `<ul class="ai-summary-list">${checkInItems.map(i => `<li class="flag-${i.level}">${i.html}</li>`).join('')}</ul>`
+        : `<div class="ai-summary-empty">No urgent check-ins &mdash; everything is on track.</div>`;
+
+      const alertHtml = alertItems.length
+        ? `<ul class="ai-summary-list">${alertItems.map(i => `<li class="flag-${i.level}">${i.html}</li>`).join('')}</ul>` : '';
+
+      const goodHtml = goodItems.length
+        ? `<ul class="ai-summary-list">${goodItems.map(i => `<li class="flag-${i.level}">${i.html}</li>`).join('')}</ul>` : '';
+
+      document.getElementById('ai-summary').innerHTML = `
+        <div class="ai-summary-header">\u2728 Daily Summary</div>
+        <div class="ai-summary-overview">${overview}</div>
+        <div class="ai-summary-section">
+          <h4>Check in on</h4>
+          ${checkInHtml}
+        </div>
+        ${alertItems.length ? `<div class="ai-summary-section"><h4>Heads up</h4>${alertHtml}</div>` : ''}
+        ${goodItems.length ? `<div class="ai-summary-section"><h4>Arriving soon</h4>${goodHtml}</div>` : ''}
+      `;
+    }
+
+    // Auto-refresh every 5 minutes (starts after auth)
+
+    // PASSWORD GATE
+    const PW_HASH = 'c435149002a1bbd4e2f4e837b16e10783843095212690cdda4e48e33d3e82028'; // sha256 of 'ovdstaff'
+    async function checkPw(input) {
+      const enc = new TextEncoder().encode(input);
+      const hash = await crypto.subtle.digest('SHA-256', enc);
+      return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+    // Check if already authenticated
+    if (sessionStorage.getItem('ovd_freight_auth') === 'true') {
+      document.getElementById('pwGate').classList.add('hidden');
+      document.getElementById('mainApp').style.display = '';
+      loadData();
+      setInterval(loadData, 5 * 60 * 1000);
+    }
+    document.getElementById('pwInput').addEventListener('keydown', async function(e) {
+      if (e.key === 'Enter') {
+        const hash = await checkPw(this.value);
+        if (hash === PW_HASH) {
+          sessionStorage.setItem('ovd_freight_auth', 'true');
+          document.getElementById('pwGate').classList.add('hidden');
+          document.getElementById('mainApp').style.display = '';
+          loadData();
+          setInterval(loadData, 5 * 60 * 1000);
+        } else {
+          this.classList.add('shake');
+          this.value = '';
+          setTimeout(() => this.classList.remove('shake'), 500);
+        }
+      }
+    });
+  </script>
+</body>
+</html>
