@@ -254,10 +254,12 @@
     .status-label-created { background: var(--amber-glow); color: var(--amber); border: 1px solid rgba(245,158,11,0.2); }
     .status-in-transit { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(59,130,246,0.2); }
     .status-delivered { background: var(--green-glow); color: var(--green); border: 1px solid rgba(34,197,94,0.2); }
+    .status-partial { background: rgba(249,115,22,0.12); color: #fb923c; border: 1px solid rgba(249,115,22,0.28); }
     .status-exception { background: var(--red-glow); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
     .status-default { background: rgba(255,255,255,0.05); color: var(--text-dim); border: 1px solid var(--border); }
     .delivered-check { font-size: 0.75rem; color: var(--text-muted); }
     .delivered-yes { color: var(--green); font-weight: 600; }
+    .delivered-partial { color: #fb923c; font-weight: 600; }
 
     /* TIMELINE */
     .timeline-bar { background: var(--surface); padding: 20px 28px; border-top: 1px solid var(--border); }
@@ -627,8 +629,13 @@
       return 'type-sea';
     }
 
+    function isPartial(status) {
+      return (status || '').toLowerCase().includes('partial');
+    }
+
     function statusClass(status) {
       const s = (status || '').toLowerCase();
+      if (s.includes('partial')) return 'status-partial';
       if (s.includes('delivered')) return 'status-delivered';
       if (s.includes('transit') || s.includes('shipping') || s.includes('out for')) return 'status-in-transit';
       if (s.includes('label') || s.includes('pending') || s.includes('created')) return 'status-label-created';
@@ -637,8 +644,9 @@
     }
 
     function getTimelineStage(status, delivered) {
-      if (delivered) return 4;
       const s = (status || '').toLowerCase();
+      if (s.includes('partial')) return 3; // some pieces delivered, some still outstanding
+      if (delivered) return 4;
       if (s.includes('delivered')) return 4;
       if (s.includes('out for delivery')) return 3;
       if (s.includes('transit') || s.includes('shipping')) return 2;
@@ -738,11 +746,13 @@
         dateAdded: getFormattedVal(row, COL.DATE_ADDED),
         dateDelivered: getFormattedVal(row, COL.DATE_DELIVERED),
         notes: getVal(row, COL.NOTES),
-        delivered: getVal(row, COL.DELIVERED) === true || getVal(row, COL.DELIVERED) === 'TRUE' || ((getVal(row, COL.STATUS) || '').toLowerCase().includes('delivered'))
+        partiallyDelivered: isPartial(getVal(row, COL.STATUS)),
+        delivered: !isPartial(getVal(row, COL.STATUS)) && (getVal(row, COL.DELIVERED) === true || getVal(row, COL.DELIVERED) === 'TRUE' || ((getVal(row, COL.STATUS) || '').toLowerCase().includes('delivered')))
       })).filter(s => s.tracking || s.carrier || s.contents);
 
       const total = shipments.length;
       const delivered = shipments.filter(s => s.delivered).length;
+      const partial = shipments.filter(s => s.partiallyDelivered).length;
       const active = total - delivered;
       const inTransit = shipments.filter(s => {
         const st = (s.status || '').toLowerCase();
@@ -771,7 +781,7 @@
         <div class="kpi-card kpi-delivered fade-in fade-in-delay-1">
           <div class="kpi-label">Delivered</div>
           <div class="kpi-value">${delivered}</div>
-          <div class="kpi-sub">${deliveredPct}% of total</div>
+          <div class="kpi-sub">${deliveredPct}% of total${partial > 0 ? ` &bull; <span style="color:#fb923c;">${partial} partial</span>` : ''}</div>
         </div>
         <div class="kpi-card kpi-transit fade-in fade-in-delay-2">
           <div class="kpi-label">In Transit</div>
@@ -810,8 +820,10 @@
 
       function renderShipmentCard(s) {
         const stage = getTimelineStage(s.status, s.delivered);
-        const pw = getProgressWidth(stage);
-        const pc = getProgressColor(stage);
+        const pw = s.partiallyDelivered ? 90 : getProgressWidth(stage);
+        const pc = s.partiallyDelivered
+          ? 'background: linear-gradient(90deg, #fb923c, rgba(249,115,22,0.3));'
+          : getProgressColor(stage);
         const url = trackingUrl(s.carrier, s.tracking);
         const cardTag = url ? 'a' : 'div';
         const cardAttrs = url ? `href="${url}" target="_blank" rel="noopener"` : '';
@@ -836,7 +848,7 @@
               </div>
               <div class="shipment-status-area">
                 <div class="status-pill ${statusClass(s.status)}">\u25CF ${s.status || 'Unknown'}</div>
-                <span class="delivered-check">${s.delivered ? '\u2611 Delivered' : '\u2610 Not Delivered'}</span>
+                <span class="delivered-check ${s.partiallyDelivered ? 'delivered-partial' : (s.delivered ? 'delivered-yes' : '')}">${s.partiallyDelivered ? '\u25d0 Partially Delivered' : (s.delivered ? '\u2611 Delivered' : '\u2610 Not Delivered')}</span>
               </div>
             </div>
             <div class="timeline-bar">
@@ -926,8 +938,8 @@
           <td><span class="status-pill ${statusClass(s.status)}" style="font-size:0.65rem;padding:3px 10px;">${s.status}</span></td>
           <td>${s.location}</td>
           <td style="color:var(--amber);font-weight:600;">${s.eta || 'Pending'}</td>
-          <td style="color:${s.delivered ? 'var(--green)' : 'var(--text-muted)'};">${s.delivered ? '\u2611 Yes' : '\u2610 No'}</td>
-          <td style="color:${s.delivered && s.dateDelivered ? 'var(--green)' : 'var(--text-muted)'};">${s.delivered && s.dateDelivered ? s.dateDelivered : '\u2014'}</td>
+          <td style="color:${s.partiallyDelivered ? '#fb923c' : (s.delivered ? 'var(--green)' : 'var(--text-muted)')};">${s.partiallyDelivered ? '\u25d0 Partial' : (s.delivered ? '\u2611 Yes' : '\u2610 No')}</td>
+          <td style="color:${(s.delivered || s.partiallyDelivered) && s.dateDelivered ? 'var(--green)' : 'var(--text-muted)'};">${(s.delivered || s.partiallyDelivered) && s.dateDelivered ? s.dateDelivered : '\u2014'}</td>
         </tr>
       `).join('');
 
@@ -1043,9 +1055,12 @@
       }).length;
       const issueCount = active.filter(s => s.issues && s.issues.toString().toLowerCase() !== 'none' && s.issues.toString().trim() !== '').length;
 
+      const partialCount = active.filter(s => s.partiallyDelivered).length;
+
       let overview = `You have <strong>${active.length} active shipment${active.length===1?'':'s'}</strong>`;
       if (delivered.length) overview += ` and <strong>${delivered.length} delivered</strong>`;
       overview += '. ';
+      if (partialCount) overview += `<strong style="color:#fb923c;">${partialCount} partially delivered</strong> (some pieces still outstanding). `;
       if (inTransit) overview += `<strong>${inTransit}</strong> in transit. `;
       if (awaitingPickup) overview += `<strong>${awaitingPickup}</strong> still awaiting pickup. `;
       if (issueCount) overview += `<strong>${issueCount}</strong> with flagged issues. `;
