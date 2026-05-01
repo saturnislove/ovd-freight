@@ -405,10 +405,14 @@
       .shipments { gap: 12px; margin-bottom: 32px; }
       .shipment-card { border-radius: 12px; }
       .shipment-top { grid-template-columns: 1fr; gap: 14px; padding: 18px 18px 14px; }
-      .shipment-status-area { align-items: stretch; flex-direction: row; flex-wrap: wrap; gap: 10px; }
-      .eta-display { flex: 1 1 140px; min-width: 0; align-items: flex-start; padding: 8px 12px; }
-      .eta-display .eta-value { font-size: 0.95rem; }
-      .eta-display.eta-pending .eta-value { font-size: 0.82rem; }
+      .shipment-status-area { align-items: center; flex-direction: row; flex-wrap: wrap; gap: 8px; }
+      .eta-display {
+        flex: 0 1 auto; min-width: 0; flex-direction: row; align-items: center; gap: 7px;
+        padding: 5px 12px; border-radius: 100px;
+      }
+      .eta-display .eta-label { font-size: 0.6rem; letter-spacing: 0.1em; }
+      .eta-display .eta-value { font-size: 0.78rem; line-height: 1; }
+      .eta-display.eta-pending .eta-value { font-size: 0.72rem; }
       .shipment-title-row { gap: 8px; row-gap: 8px; }
       .tracking-num { font-size: 0.95rem; word-break: break-all; }
       .carrier-badge { font-size: 0.62rem; padding: 3px 8px; }
