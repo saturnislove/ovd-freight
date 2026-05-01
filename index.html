@@ -877,7 +877,7 @@
                   <span class="eta-label">ETA</span>
                   <span class="eta-value">${s.eta || 'TBD'}</span>
                 </div>` : ''}
-                <span class="delivered-check ${s.partiallyDelivered ? 'delivered-partial' : (s.delivered ? 'delivered-yes' : '')}">${s.partiallyDelivered ? '\u25d0 Partially Delivered' : (s.delivered ? '\u2611 Delivered' : '\u2610 Not Delivered')}</span>
+                ${s.partiallyDelivered ? '' : `<span class="delivered-check ${s.delivered ? 'delivered-yes' : ''}">${s.delivered ? '\u2611 Delivered' : '\u2610 Not Delivered'}</span>`}
               </div>
             </div>
             <div class="timeline-bar">
