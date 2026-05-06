@@ -689,7 +689,7 @@
       const s = (status || '').toLowerCase();
       if (isPartial(status)) return 'status-partial';
       if (s.includes('delivered')) return 'status-delivered';
-      if (s.includes('transit') || s.includes('shipping') || s.includes('out for')) return 'status-in-transit';
+      if (s.includes('transit') || s.includes('shipping') || s.includes('out for') || s.includes('on the way')) return 'status-in-transit';
       if (s.includes('label') || s.includes('pending') || s.includes('created')) return 'status-label-created';
       if (s.includes('exception') || s.includes('hold') || s.includes('customs')) return 'status-exception';
       return 'status-default';
@@ -701,8 +701,8 @@
       if (delivered) return 4;
       if (s.includes('delivered')) return 4;
       if (s.includes('out for delivery')) return 3;
-      if (s.includes('transit') || s.includes('shipping')) return 2;
-      if (s.includes('picked up') || s.includes('pickup')) return 1;
+      if (s.includes('transit') || s.includes('shipping') || s.includes('on the way')) return 2;
+      if (s.includes('picked up') || s.includes('pickup') || s.includes('we have your package')) return 1;
       return 0; // label created
     }
 
