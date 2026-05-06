@@ -242,6 +242,15 @@
     .carrier-usps { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(59,130,246,0.2); }
     .type-sea { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(59,130,246,0.2); }
     .type-air { background: var(--red-glow); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+    .packages-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 6px;
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+      background: rgba(148,163,184,0.12); color: #cbd5e1; border: 1px solid rgba(148,163,184,0.22);
+    }
+    .packages-badge.packages-partial {
+      background: rgba(249,115,22,0.12); color: #fb923c; border: 1px solid rgba(249,115,22,0.28);
+    }
     .shipment-meta { display: flex; gap: 24px; flex-wrap: wrap; }
     .meta-item { display: flex; flex-direction: column; gap: 2px; }
     .meta-label { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
@@ -559,6 +568,7 @@
               <th>Tracking #</th>
               <th>Carrier</th>
               <th>Type</th>
+              <th>Pkgs</th>
               <th>Contents</th>
               <th>Supplier</th>
               <th>Status</th>
@@ -614,8 +624,20 @@
       DATE_ADDED: 10,  // K
       NOTES: 11,     // L
       DELIVERED: 12,  // M
-      DATE_DELIVERED: 13 // N
+      DATE_DELIVERED: 13, // N
+      PACKAGES: 14   // O
     };
+
+    // Parse "Delivered (X of Y)" pattern. Returns { delivered, total } or null.
+    function parsePartialStatus(status) {
+      if (!status) return null;
+      const m = String(status).match(/(\d+)\s*(?:of|\/)\s*(\d+)/i);
+      if (!m) return null;
+      const delivered = parseInt(m[1], 10);
+      const total = parseInt(m[2], 10);
+      if (isNaN(delivered) || isNaN(total) || total === 0) return null;
+      return { delivered, total };
+    }
 
     function getVal(row, col) {
       if (!row.c || !row.c[col]) return '';
@@ -655,12 +677,17 @@
     }
 
     function isPartial(status) {
-      return (status || '').toLowerCase().includes('partial');
+      const s = (status || '').toLowerCase();
+      if (s.includes('partial')) return true;
+      // "Delivered (X of Y)" with X < Y is partial
+      const p = parsePartialStatus(status);
+      if (p && p.delivered < p.total) return true;
+      return false;
     }
 
     function statusClass(status) {
       const s = (status || '').toLowerCase();
-      if (s.includes('partial')) return 'status-partial';
+      if (isPartial(status)) return 'status-partial';
       if (s.includes('delivered')) return 'status-delivered';
       if (s.includes('transit') || s.includes('shipping') || s.includes('out for')) return 'status-in-transit';
       if (s.includes('label') || s.includes('pending') || s.includes('created')) return 'status-label-created';
@@ -670,7 +697,7 @@
 
     function getTimelineStage(status, delivered) {
       const s = (status || '').toLowerCase();
-      if (s.includes('partial')) return 3; // some pieces delivered, some still outstanding
+      if (isPartial(status)) return 3; // some pieces delivered, some still outstanding
       if (delivered) return 4;
       if (s.includes('delivered')) return 4;
       if (s.includes('out for delivery')) return 3;
@@ -757,23 +784,38 @@
     }
 
     function renderDashboard(rows) {
-      const shipments = rows.map(row => ({
-        tracking: getVal(row, COL.TRACKING),
-        carrier: getFormattedVal(row, COL.CARRIER),
-        shipType: getFormattedVal(row, COL.SHIP_TYPE),
-        contents: getVal(row, COL.CONTENTS),
-        supplier: getVal(row, COL.SUPPLIER),
-        status: getVal(row, COL.STATUS),
-        location: getVal(row, COL.LOCATION),
-        eta: getFormattedVal(row, COL.ETA),
-        issues: getVal(row, COL.ISSUES),
-        lastChecked: getFormattedVal(row, COL.LAST_CHECKED),
-        dateAdded: getFormattedVal(row, COL.DATE_ADDED),
-        dateDelivered: getFormattedVal(row, COL.DATE_DELIVERED),
-        notes: getVal(row, COL.NOTES),
-        partiallyDelivered: isPartial(getVal(row, COL.STATUS)),
-        delivered: !isPartial(getVal(row, COL.STATUS)) && (getVal(row, COL.DELIVERED) === true || getVal(row, COL.DELIVERED) === 'TRUE' || ((getVal(row, COL.STATUS) || '').toLowerCase().includes('delivered')))
-      })).filter(s => s.tracking || s.carrier || s.contents);
+      const shipments = rows.map(row => {
+        const status = getVal(row, COL.STATUS);
+        const partialMatch = parsePartialStatus(status);
+        const partiallyDelivered = isPartial(status);
+        const fullyDelivered = !partiallyDelivered && (
+          getVal(row, COL.DELIVERED) === true ||
+          getVal(row, COL.DELIVERED) === 'TRUE' ||
+          ((status || '').toLowerCase().includes('delivered'))
+        );
+        const packagesRaw = getVal(row, COL.PACKAGES);
+        const packagesNum = parseInt(packagesRaw, 10);
+        return {
+          tracking: getVal(row, COL.TRACKING),
+          carrier: getFormattedVal(row, COL.CARRIER),
+          shipType: getFormattedVal(row, COL.SHIP_TYPE),
+          contents: getVal(row, COL.CONTENTS),
+          supplier: getVal(row, COL.SUPPLIER),
+          status: status,
+          location: getVal(row, COL.LOCATION),
+          eta: getFormattedVal(row, COL.ETA),
+          issues: getVal(row, COL.ISSUES),
+          lastChecked: getFormattedVal(row, COL.LAST_CHECKED),
+          dateAdded: getFormattedVal(row, COL.DATE_ADDED),
+          dateDelivered: getFormattedVal(row, COL.DATE_DELIVERED),
+          notes: getVal(row, COL.NOTES),
+          packages: !isNaN(packagesNum) && packagesNum > 0 ? packagesNum : null,
+          partialDelivered: partialMatch ? partialMatch.delivered : null,
+          partialTotal: partialMatch ? partialMatch.total : null,
+          partiallyDelivered: partiallyDelivered,
+          delivered: fullyDelivered
+        };
+      }).filter(s => s.tracking || s.carrier || s.contents);
 
       const total = shipments.length;
       const delivered = shipments.filter(s => s.delivered).length;
@@ -861,6 +903,7 @@
                   <span class="tracking-num">${s.tracking}</span>
                   <span class="carrier-badge ${carrierClass(s.carrier)}">\u25C6 ${s.carrier}</span>
                   ${s.shipType ? `<span class="carrier-badge ${typeClass(s.shipType)}">${s.shipType.toUpperCase() === 'AIR' ? '\u2708' : '\u2699'} ${s.shipType}</span>` : ''}
+                  ${s.packages ? `<span class="packages-badge${s.partiallyDelivered && s.partialDelivered != null ? ' packages-partial' : ''}">\uD83D\uDCE6 ${s.partiallyDelivered && s.partialDelivered != null ? `${s.partialDelivered} / ${s.packages}` : s.packages} ${s.packages === 1 ? 'pkg' : 'pkgs'}</span>` : ''}
                 </div>
                 <div class="shipment-meta">
                   ${s.contents ? `<div class="meta-item"><span class="meta-label">Contents</span><span class="meta-value">${s.contents}</span></div>` : ''}
@@ -951,6 +994,10 @@
                 <div class="arrival-detail-label">Ship Type</div>
                 <div class="arrival-detail-value" style="color:${s.shipType && s.shipType.toUpperCase() === 'AIR' ? 'var(--red)' : 'var(--blue)'};font-weight:600;">${s.shipType || 'N/A'}</div>
               </div>
+              ${s.packages ? `<div>
+                <div class="arrival-detail-label">Packages</div>
+                <div class="arrival-detail-value" style="color:${s.partiallyDelivered && s.partialDelivered != null ? '#fb923c' : 'var(--text)'};font-weight:600;">📦 ${s.partiallyDelivered && s.partialDelivered != null ? `${s.partialDelivered} / ${s.packages}` : s.packages}</div>
+              </div>` : ''}
             </div>
           </div>
         `;
@@ -962,6 +1009,7 @@
           <td class="td-tracking">${s.tracking}</td>
           <td><span class="carrier-badge ${carrierClass(s.carrier)}" style="font-size:0.65rem;">${s.carrier}</span></td>
           <td>${s.shipType ? `<span class="carrier-badge ${typeClass(s.shipType)}" style="font-size:0.65rem;">${s.shipType}</span>` : ''}</td>
+          <td style="font-variant-numeric:tabular-nums;color:${s.partiallyDelivered && s.partialDelivered != null ? '#fb923c' : 'var(--text)'};font-weight:600;">${s.packages ? (s.partiallyDelivered && s.partialDelivered != null ? `${s.partialDelivered} / ${s.packages}` : s.packages) : '—'}</td>
           <td>${s.contents}</td>
           <td>${s.supplier}</td>
           <td><span class="status-pill ${statusClass(s.status)}" style="font-size:0.65rem;padding:3px 10px;">${s.status}</span></td>
